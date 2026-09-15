@@ -1,0 +1,76 @@
+name: Build Android APK & Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:   # Cho phép trigger thủ công từ GitHub UI
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🔄 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: 📦 Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: 🔧 Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: 🏗️ Build APK
+        run: eas build --platform android --profile preview --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: 📥 Download APK
+        run: |
+          APK_URL=$(eas build:list --platform android --status finished --limit 1 --json --non-interactive | jq -r '.[0].artifacts.buildUrl')
+          echo "APK URL: $APK_URL"
+          curl -L "$APK_URL" -o microlearn-demo.apk
+
+      - name: 🏷️ Get version
+        id: version
+        run: |
+          VERSION=$(node -e "const a=require('./app.json'); console.log(a.expo.version)")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION-$(date +'%Y%m%d-%H%M')" >> $GITHUB_OUTPUT
+
+      - name: 🚀 Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "MicroLearn Demo ${{ steps.version.outputs.tag }}"
+          body: |
+            ## 🎓 MicroLearn Video App – Demo APK
+
+            ### 📱 Cách cài
+            1. Tải file `microlearn-demo.apk` xuống điện thoại Android
+            2. Mở file APK → cho phép cài từ nguồn không rõ nếu được hỏi
+            3. Cài xong → mở app MicroLearn
+
+            ### 🎯 Tính năng demo
+            - ✅ Đăng nhập (nhấn "Đăng nhập nhanh")
+            - ✅ Xem danh sách khóa học
+            - ✅ Video player với progress tracking
+            - ✅ Quiz MCQ sau mỗi bài
+            - ✅ Tải bài học offline
+            - ✅ Toggle chế độ Offline/Online
+            - ✅ Đồng bộ dữ liệu (simulate)
+
+            ### ⚙️ Yêu cầu
+            - Android 6.0 (API 23) trở lên
+            - Cho phép cài từ nguồn không rõ (Unknown Sources)
+          files: microlearn-demo.apk
+          draft: false
+          prerelease: true
