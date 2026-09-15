@@ -5,17 +5,15 @@ import {
   TouchableOpacity,
   Dimensions,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useRef, useState, useCallback } from 'react';
-import { Video, ResizeMode } from 'expo-av';
+import { useState, useEffect } from 'react';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
 import { useProgressStore } from '../../store/progressStore';
 import { useAuthStore } from '../../store/authStore';
-import { LinearGradient } from 'expo-linear-gradient';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 export default function LessonScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -29,29 +27,36 @@ export default function LessonScreen() {
 
   const lesson = getLessonById(id!);
   const course = getCourseByLessonId(id!);
-  const videoRef = useRef<Video>(null);
 
-  const [status, setStatus] = useState<any>({});
-  const [showControls, setShowControls] = useState(true);
-  const [completedShown, setCompletedShown] = useState(false);
+  const videoSource = lesson?.videoUrl ?? 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+
+  const player = useVideoPlayer(videoSource, p => {
+    p.loop = false;
+    p.play();
+  });
 
   const dlPct = downloadProgress[id!];
   const isDownloading = dlPct !== undefined;
 
-  const onPlaybackStatusUpdate = useCallback(
-    (s: any) => {
-      setStatus(s);
-      if (s.positionMillis && s.durationMillis) {
-        const pct = Math.round((s.positionMillis / s.durationMillis) * 100);
-        updateWatchProgress(id!, pct);
-        if (pct >= 85 && !completedShown) {
-          markCompleted(id!);
-          setCompletedShown(true);
+  // Poll progress from player
+  useEffect(() => {
+    if (!player || !lesson) return;
+    const interval = setInterval(() => {
+      try {
+        if (player.duration > 0) {
+          const pct = Math.round((player.currentTime / player.duration) * 100);
+          updateWatchProgress(id!, pct);
+          if (pct >= 85 && !lesson.isCompleted) {
+            markCompleted(id!);
+          }
         }
+      } catch (e) {
+        // ignore
       }
-    },
-    [id, completedShown, markCompleted, updateWatchProgress]
-  );
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [player, id, lesson?.isCompleted]);
 
   if (!lesson) {
     return (
@@ -66,6 +71,17 @@ export default function LessonScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Top Header bar with back button */}
+      <View style={styles.topBar}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={26} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.topBarTitle} numberOfLines={1}>
+          {lesson.title}
+        </Text>
+        <View style={{ width: 40 }} />
+      </View>
+
       {/* Video Player */}
       <View style={styles.videoWrapper}>
         {isOffline && !lesson.isDownloaded ? (
@@ -77,99 +93,11 @@ export default function LessonScreen() {
             </Text>
           </View>
         ) : (
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={() => setShowControls(v => !v)}
-            style={{ flex: 1 }}
-          >
-            <Video
-              ref={videoRef}
-              source={{ uri: lesson.videoUrl }}
-              style={styles.video}
-              resizeMode={ResizeMode.CONTAIN}
-              shouldPlay
-              isLooping={false}
-              onPlaybackStatusUpdate={onPlaybackStatusUpdate}
-            />
-            {showControls && (
-              <View style={styles.controls}>
-                <LinearGradient
-                  colors={['rgba(0,0,0,0.6)', 'transparent']}
-                  style={styles.topGradient}
-                >
-                  <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-                    <Ionicons name="chevron-down" size={28} color="#fff" />
-                  </TouchableOpacity>
-                  {lesson.isDownloaded ? (
-                    <View style={styles.downloadedBadge}>
-                      <Ionicons name="cloud-done" size={14} color="#22c55e" />
-                      <Text style={styles.downloadedText}> Đã tải về</Text>
-                    </View>
-                  ) : (
-                    !isDownloading && (
-                      <TouchableOpacity
-                        style={styles.dlBtn}
-                        onPress={() => startDownload(lesson.id)}
-                      >
-                        <Ionicons name="cloud-download-outline" size={20} color="#fff" />
-                      </TouchableOpacity>
-                    )
-                  )}
-                </LinearGradient>
-                <LinearGradient
-                  colors={['transparent', 'rgba(0,0,0,0.7)']}
-                  style={styles.bottomGradient}
-                >
-                  {/* Progress bar */}
-                  <View style={styles.seekBar}>
-                    <View style={styles.seekBg}>
-                      <View
-                        style={[
-                          styles.seekFill,
-                          {
-                            width: `${
-                              status.durationMillis
-                                ? (status.positionMillis / status.durationMillis) * 100
-                                : 0
-                            }%`,
-                          },
-                        ]}
-                      />
-                    </View>
-                  </View>
-                  <View style={styles.ctrlRow}>
-                    <TouchableOpacity
-                      onPress={() => {
-                        if (status.isPlaying) {
-                          videoRef.current?.pauseAsync();
-                        } else {
-                          videoRef.current?.playAsync();
-                        }
-                      }}
-                    >
-                      <Ionicons
-                        name={status.isPlaying ? 'pause-circle' : 'play-circle'}
-                        size={48}
-                        color="#fff"
-                      />
-                    </TouchableOpacity>
-                    <Text style={styles.timeText}>
-                      {formatTime(status.positionMillis || 0)} / {formatTime(status.durationMillis || 0)}
-                    </Text>
-                  </View>
-                </LinearGradient>
-              </View>
-            )}
-            {isDownloading && (
-              <View style={styles.dlProgress}>
-                <Ionicons name="cloud-download" size={14} color="#fff" />
-                <View style={styles.dlBar}>
-                  <View style={[styles.dlFill, { width: `${dlPct}%` }]} />
-                </View>
-                <Text style={styles.dlPct}>{Math.round(dlPct)}%</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          <VideoView
+            style={styles.video}
+            player={player}
+            nativeControls
+          />
         )}
       </View>
 
@@ -201,6 +129,31 @@ export default function LessonScreen() {
           </View>
         </View>
 
+        {/* Action Row: Download button */}
+        <View style={styles.actionRow}>
+          {lesson.isDownloaded ? (
+            <View style={styles.downloadedBadge}>
+              <Ionicons name="checkmark-circle" size={16} color="#22c55e" />
+              <Text style={styles.downloadedText}> Đã tải về thiết bị ({lesson.downloadSize})</Text>
+            </View>
+          ) : isDownloading ? (
+            <View style={styles.downloadingBox}>
+              <Text style={styles.downloadingText}>Đang tải... {Math.round(dlPct)}%</Text>
+              <View style={styles.dlBar}>
+                <View style={[styles.dlFill, { width: `${dlPct}%` }]} />
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.downloadBtn}
+              onPress={() => startDownload(lesson.id)}
+            >
+              <Ionicons name="cloud-download-outline" size={18} color="#6C63FF" />
+              <Text style={styles.downloadBtnText}> Tải về học offline ({lesson.downloadSize})</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         {/* Completion badge */}
         {lesson.isCompleted && (
           <View style={styles.completeBadge}>
@@ -230,15 +183,29 @@ export default function LessonScreen() {
   );
 }
 
-function formatTime(ms: number): string {
-  const totalSec = Math.floor(ms / 1000);
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
+  topBar: {
+    height: 60,
+    backgroundColor: '#1a1a2e',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    justifyContent: 'space-between',
+  },
+  topBarTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    flex: 1,
+    textAlign: 'center',
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
   videoWrapper: {
     width: width,
     height: width * 0.5625, // 16:9
@@ -254,44 +221,6 @@ const styles = StyleSheet.create({
   },
   offlineTitle: { color: '#fff', fontSize: 18, fontWeight: '700', marginTop: 16, marginBottom: 8 },
   offlineDesc: { color: '#94a3b8', fontSize: 14, textAlign: 'center', lineHeight: 21 },
-  controls: { ...StyleSheet.absoluteFill },
-  topGradient: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 48,
-    paddingBottom: 20,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  downloadedBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12 },
-  downloadedText: { color: '#22c55e', fontSize: 12, fontWeight: '600' },
-  dlBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
-  bottomGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingBottom: 12 },
-  seekBar: { paddingHorizontal: 16, marginBottom: 8 },
-  seekBg: { height: 3, backgroundColor: 'rgba(255,255,255,0.3)', borderRadius: 2 },
-  seekFill: { height: 3, backgroundColor: '#6C63FF', borderRadius: 2 },
-  ctrlRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 16 },
-  timeText: { color: '#fff', fontSize: 13 },
-  dlProgress: {
-    position: 'absolute',
-    bottom: 8,
-    left: 16,
-    right: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  dlBar: { flex: 1, height: 3, backgroundColor: 'rgba(255,255,255,0.3)', borderRadius: 2 },
-  dlFill: { height: 3, backgroundColor: '#6C63FF', borderRadius: 2 },
-  dlPct: { color: '#fff', fontSize: 11 },
   content: { flex: 1, backgroundColor: '#f8fafc' },
   courseLabel: { fontSize: 12, color: '#6C63FF', fontWeight: '700', paddingHorizontal: 20, paddingTop: 16, marginBottom: 4 },
   lessonTitle: { fontSize: 20, fontWeight: '800', color: '#1a1a2e', paddingHorizontal: 20, marginBottom: 10 },
@@ -301,6 +230,33 @@ const styles = StyleSheet.create({
   watchProgress: { paddingHorizontal: 20, marginBottom: 14 },
   watchBg: { height: 5, backgroundColor: '#e2e8f0', borderRadius: 3 },
   watchFill: { height: 5, backgroundColor: '#6C63FF', borderRadius: 3 },
+  actionRow: { paddingHorizontal: 20, marginBottom: 16 },
+  downloadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#f0eeff',
+    borderWidth: 1,
+    borderColor: '#6C63FF',
+  },
+  downloadBtnText: { color: '#6C63FF', fontWeight: '700', fontSize: 13 },
+  downloadedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0fdf4',
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  downloadedText: { color: '#16a34a', fontWeight: '600', fontSize: 13 },
+  downloadingBox: { backgroundColor: '#f0eeff', padding: 12, borderRadius: 10 },
+  downloadingText: { color: '#6C63FF', fontSize: 12, fontWeight: '700', marginBottom: 6 },
+  dlBar: { height: 4, backgroundColor: '#e2e8f0', borderRadius: 2 },
+  dlFill: { height: 4, backgroundColor: '#6C63FF', borderRadius: 2 },
   completeBadge: {
     flexDirection: 'row',
     alignItems: 'center',

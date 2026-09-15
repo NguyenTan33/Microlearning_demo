@@ -1,21 +1,13 @@
-import { Stack, router } from 'expo-router';
-import { useEffect } from 'react';
-import { useAuthStore } from '../store/authStore';
+import 'react-native-gesture-handler';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
 export default function RootLayout() {
-  const isLoggedIn = useAuthStore(s => s.isLoggedIn);
-
-  useEffect(() => {
-    if (!isLoggedIn) {
-      router.replace('/(auth)/login');
-    }
-  }, [isLoggedIn]);
-
   return (
     <>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
