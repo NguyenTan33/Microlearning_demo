@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "MicroLearn",
-    "slug": "microleaning_demo",
+    "slug": "microlearning-demo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -34,10 +34,8 @@
     "extra": {
       "router": {
         "origin": false
-      },
-      "eas": {
-        "projectId": "412ae6ff-8390-4158-bf24-66850ca49cbd"
       }
     }
   }
 }
+
