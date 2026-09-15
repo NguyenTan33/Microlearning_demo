@@ -14,6 +14,8 @@ import { useAuthStore } from '../../store/authStore';
 import { useProgressStore } from '../../store/progressStore';
 import { LinearGradient } from 'expo-linear-gradient';
 
+const AVATAR_IMG = require('../../assets/avatar_profile.jpg');
+
 export default function ProfileScreen() {
   const user = useAuthStore(s => s.user);
   const isOffline = useAuthStore(s => s.isOffline);
@@ -45,7 +47,11 @@ export default function ProfileScreen() {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header */}
       <LinearGradient colors={['#6C63FF', '#4845B2']} style={styles.header}>
-        <Image source={{ uri: user?.avatar }} style={styles.avatar} />
+        <Image
+          source={user?.avatar ? { uri: user.avatar } : AVATAR_IMG}
+          defaultSource={AVATAR_IMG}
+          style={styles.avatar}
+        />
         <Text style={styles.name}>{user?.name}</Text>
         <Text style={styles.email}>{user?.email}</Text>
         <View style={styles.statsRow}>

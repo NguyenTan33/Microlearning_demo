@@ -51,24 +51,25 @@ export default function CoursesScreen() {
       </View>
 
       {/* Filter chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterScroll}
-        contentContainerStyle={styles.filterContent}
-      >
-        {LEVELS.map(level => (
-          <TouchableOpacity
-            key={level}
-            style={[styles.chip, filter === level && styles.chipActive]}
-            onPress={() => setFilter(level)}
-          >
-            <Text style={[styles.chipText, filter === level && styles.chipTextActive]}>
-              {level}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <View style={styles.filterContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterContent}
+        >
+          {LEVELS.map(level => (
+            <TouchableOpacity
+              key={level}
+              style={[styles.chip, filter === level && styles.chipActive]}
+              onPress={() => setFilter(level)}
+            >
+              <Text style={[styles.chipText, filter === level && styles.chipTextActive]}>
+                {level}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
       {/* Course list */}
       <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
@@ -150,15 +151,18 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
   },
   searchInput: { flex: 1, fontSize: 14, color: '#1a1a2e' },
-  filterScroll: { marginTop: 12 },
-  filterContent: { paddingHorizontal: 20, gap: 8 },
+  filterContainer: { height: 44, marginTop: 12 },
+  filterContent: { paddingHorizontal: 20, gap: 8, alignItems: 'center' },
   chip: {
     paddingHorizontal: 16,
-    paddingVertical: 7,
+    paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: '#fff',
     borderWidth: 1.5,
     borderColor: '#e2e8f0',
+    height: 38,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   chipActive: { backgroundColor: '#6C63FF', borderColor: '#6C63FF' },
   chipText: { fontSize: 13, fontWeight: '600', color: '#64748b' },

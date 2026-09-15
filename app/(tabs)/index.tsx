@@ -15,6 +15,8 @@ import { useProgressStore } from '../../store/progressStore';
 
 const { width } = Dimensions.get('window');
 
+const AVATAR_IMG = require('../../assets/avatar_profile.jpg');
+
 export default function HomeScreen() {
   const user = useAuthStore(s => s.user);
   const isOffline = useAuthStore(s => s.isOffline);
@@ -53,7 +55,8 @@ export default function HomeScreen() {
           </View>
           <TouchableOpacity style={styles.avatarBtn}>
             <Image
-              source={{ uri: user?.avatar }}
+              source={user?.avatar ? { uri: user.avatar } : AVATAR_IMG}
+              defaultSource={AVATAR_IMG}
               style={styles.avatar}
             />
           </TouchableOpacity>

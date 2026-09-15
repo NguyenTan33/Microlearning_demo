@@ -16,7 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthStore } from '../../store/authStore';
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('demo@microlearn.vn');
+  const [email, setEmail] = useState('quocan@microlearn.vn');
   const [password, setPassword] = useState('123456');
   const [loading, setLoading] = useState(false);
   const login = useAuthStore(s => s.login);
