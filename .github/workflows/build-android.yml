@@ -13,62 +13,98 @@ jobs:
       - name: 🔄 Checkout code
         uses: actions/checkout@v4
 
-      - name: 🟢 Setup Node.js
+      - name: 🟢 Setup Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          # Tắt cache để tránh lỗi "Cache service 400"
+          cache: ''
 
       - name: 📦 Install dependencies
-        run: npm install --legacy-peer-deps
+        run: |
+          npm install --legacy-peer-deps --no-audit --no-fund
+          echo "✅ npm install done"
 
-      - name: 🔧 Setup EAS
-        uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
-          packager: npm
+      - name: 🔧 Install EAS CLI
+        run: npm install -g eas-cli@latest
 
-      - name: 🏗️ Build APK
-        run: eas build --platform android --profile preview --non-interactive --wait
+      - name: 🔐 Verify EXPO_TOKEN
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "❌ EXPO_TOKEN is empty! Check GitHub Secrets."
+            exit 1
+          fi
+          echo "✅ EXPO_TOKEN is set (length: ${#EXPO_TOKEN})"
+          # Login to Expo
+          npx eas-cli whoami
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          npm_config_yes: true
 
-      - name: 📥 Download APK
+      - name: 🏗️ Build APK via EAS
         run: |
-          APK_URL=$(eas build:list --platform android --status finished --limit 1 --json --non-interactive | python3 -c "import sys,json; data=json.load(sys.stdin); print(data[0]['artifacts']['buildUrl'])")
-          echo "APK_URL=$APK_URL" >> $GITHUB_ENV
-          echo "Downloading APK from: $APK_URL"
+          eas build \
+            --platform android \
+            --profile preview \
+            --non-interactive \
+            --wait \
+            --no-auto-submit
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: 📥 Download built APK
+        run: |
+          echo "Getting latest build URL..."
+          BUILD_JSON=$(eas build:list \
+            --platform android \
+            --status finished \
+            --limit 1 \
+            --json \
+            --non-interactive)
+          echo "Build info: $BUILD_JSON"
+          APK_URL=$(echo "$BUILD_JSON" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          if data:
+              print(data[0]['artifacts']['buildUrl'])
+          else:
+              print('NO_URL')
+          ")
+          echo "APK URL: $APK_URL"
+          if [ "$APK_URL" = "NO_URL" ] || [ -z "$APK_URL" ]; then
+            echo "❌ Could not get APK URL"
+            exit 1
+          fi
           curl -L "$APK_URL" -o microlearn-demo.apk
-          ls -lh microlearn-demo.apk
+          echo "✅ APK downloaded: $(ls -lh microlearn-demo.apk)"
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 🏷️ Get tag
+      - name: 🏷️ Generate release tag
         id: tag
-        run: |
-          echo "tag=v1.0.0-$(date +'%Y%m%d-%H%M')" >> $GITHUB_OUTPUT
+        run: echo "tag=v1.0-$(date +'%Y%m%d-%H%M')" >> $GITHUB_OUTPUT
 
-      - name: 🚀 Create GitHub Release
+      - name: 🚀 Create GitHub Release with APK
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
-          name: "MicroLearn Demo ${{ steps.tag.outputs.tag }}"
+          name: "🎓 MicroLearn Demo ${{ steps.tag.outputs.tag }}"
           body: |
-            ## 🎓 MicroLearn Video App – Demo APK
+            ## 📱 Tải APK và cài lên Android
 
-            ### 📱 Cách cài trên Android
-            1. Tải file `microlearn-demo.apk` xuống điện thoại
-            2. Mở file APK → nhấn **Cài đặt**
-            3. Nếu hỏi "Unknown Sources" → cho phép → cài lại
+            ### Cách cài:
+            1. Tải file `microlearn-demo.apk` về điện thoại Android
+            2. Mở file → nhấn **Cài đặt**
+            3. Nếu hỏi "Unknown Sources" → bật lên → cài lại
 
-            ### 🎯 Tính năng demo
-            - ✅ Login (nhấn "Đăng nhập nhanh")
-            - ✅ Video player với progress tracking  
-            - ✅ Quiz MCQ sau mỗi bài học
-            - ✅ Tải bài học offline
-            - ✅ Toggle chế độ Offline/Online
-            - ✅ Sync simulation
+            ### Tính năng demo:
+            - 🔐 Đăng nhập (nhấn "Đăng nhập nhanh")
+            - 📚 Danh sách khóa học JavaScript, React Native, UI/UX
+            - 🎥 Video player + progress tracking
+            - ❓ Quiz MCQ với giải thích đáp án
+            - 📥 Download bài học xem offline
+            - 🔄 Simulate Offline mode + Sync
 
-            ### ⚙️ Yêu cầu: Android 6.0+
+            **Yêu cầu:** Android 6.0+
           files: microlearn-demo.apk
           draft: false
           prerelease: true
