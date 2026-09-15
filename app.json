@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "MicroLearn",
-    "slug": "microlearning-demo",
+    "slug": "microleaning_demo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,14 +14,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.demo.microlearn"
+      "bundleIdentifier": "com.nguyentan.microlearn"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#6C63FF"
       },
-      "package": "com.demo.microlearn",
+      "package": "com.nguyentan.microlearn",
       "permissions": ["INTERNET", "WRITE_EXTERNAL_STORAGE", "READ_EXTERNAL_STORAGE"]
     },
     "web": {
@@ -36,7 +36,7 @@
         "origin": false
       },
       "eas": {
-        "projectId": "your-project-id"
+        "projectId": "412ae6ff-8390-4158-bf24-66850ca49cbd"
       }
     }
   }
